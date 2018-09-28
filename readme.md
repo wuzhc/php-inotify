@@ -1,10 +1,16 @@
 php-inotify用于监控目录或文件事件
 
+### inotify机制
+可以参考我的笔记 —— (inotify监控文件事件)[https://github.com/wuzhc/zcnote/blob/master/c/inotify.md] 
+
 ### 编译安装
 ```bash
 /path/to/phpize
 ./configure --with-php-config=/path/to/php-config
 make && make install
+
+# 配置php.ini
+extension=inotify.so
 ```
 
 ### php脚本
@@ -34,3 +40,4 @@ $inotify->addWatch(array path);
 $inotify->run();
 ```
 run运行时会阻塞程序，直到有事件发生会返回数据，然后继续下次监控
+
