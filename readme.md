@@ -1,7 +1,7 @@
 php-inotify用于监控目录或文件事件
 
 ### inotify机制
-可以参考我的笔记 —— (inotify监控文件事件)[https://github.com/wuzhc/zcnote/blob/master/c/inotify.md] 
+可以参考我的笔记 —— [inotify监控文件事件](https://github.com/wuzhc/zcnote/blob/master/c/inotify.md) 
 
 ### 编译安装
 ```bash
