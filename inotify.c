@@ -92,8 +92,6 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_add_watch, 0, 0, 1)
 ZEND_ARG_INFO(0, targets) // zend_internal_arg_info宏定义
 ZEND_END_ARG_INFO()
 
-#define ARRAY_SIZE(x) (sizeof(x)/sizeof((x)[0]))
-
 PHP_METHOD(inotify, __construct)
 {
     int fd;
@@ -138,8 +136,6 @@ PHP_METHOD(inotify, addWatch)
             php_printf("watching %s using wd %d \n", Z_STRVAL(targets->arData[i].val), wd);
         }
     }
-
-
 }
 
 PHP_METHOD(inotify, run)
@@ -178,8 +174,6 @@ PHP_METHOD(inotify, run)
             p += sizeof(struct inotify_event) + event->len;
         }
     }
-
-
 }
 
 void displayInotifyEvent(struct inotify_event *i)
