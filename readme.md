@@ -16,12 +16,33 @@ extension=inotify.so
 ### php脚本
 ```php
 // inotify.php
+$eventNameMap = [
+  'IN_ATTRIB'        => '编辑',
+  'IN_OPEN'          => '打开',
+  'IN_WRITE'         => '写入',
+  'IN_MODIFY'        => '修改',
+  'IN_CREATE'        => '创建',
+  'IN_ACCESS'        => '访问',
+  'IN_CLOSE_NOWRITE' => '关闭',
+  'IN_DELETE'        => '删除',
+  'IN_DELETE_SELF'   => '删除',
+  'IN_OPEN'          => '打开',
+  'IN_MOVED_FROM'    => '移出',
+  'IN_MOVED_TO'      => '移入',
+  'IN_ISDIR'         => '目录'
+];
+
 $inotify = new Inotify();
-$inotify->addWatch(['/home/wuzhc']); // 添加监控目录或文件
+$inotify->addWatch(['/home/wuzhc']);
 
 while (true) {
-  $ret = $inotify->run(); 
-  print_r($ret); // [{name:"/home/wuzhc/test.txt", mask:IN_MODIFY}]
+  $result = $inotify->run();
+  foreach ($result as $event) {
+    if (!isset($event['mask'], $event['name'])) {
+      continue;
+    }
+    echo $eventNameMap[$event['mask']] . $event['name'] . "\n";
+  }
 }
 ```
 
@@ -29,6 +50,9 @@ while (true) {
 ```bash
 /path/to/php inotify.php
 ```
+
+### 结果
+![](./inotify.png)
 
 ### 说明
 ```php
