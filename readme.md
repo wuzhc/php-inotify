@@ -34,7 +34,7 @@ while (true) {
 ```php
 $inotify->addWatch(array path);
 ```
-- path 监控目录或文件，类型为数组，可以同时监控多个文件或目录
+path 监控目录或文件，类型为数组，可以同时监控多个文件或目录
 
 ```php
 $inotify->run();

@@ -67,23 +67,6 @@ PHP_FUNCTION(confirm_inotify_compiled)
     RETURN_STR(strg);
 }
 /* }}} */
-/* The previous line is meant for vim and emacs, so it can correctly fold and
-   unfold functions in source code. See the corresponding marks just before
-   function definition, where the functions purpose is also documented. Please
-   follow this convention for the convenience of others editing your code.
-*/
-
-
-/* {{{ php_inotify_init_globals
- */
-/* Uncomment this function if you have INI entries
-static void php_inotify_init_globals(zend_inotify_globals *inotify_globals)
-{
-  inotify_globals->global_value = 0;
-  inotify_globals->global_string = NULL;
-}
-*/
-/* }}} */
 
 zend_class_entry inotify_ce;
 zend_class_entry *inotify_ce_ptr;
@@ -111,31 +94,37 @@ PHP_METHOD(inotify, __destruct)
 PHP_METHOD(inotify, addWatch)
 {
     int i, fd, wd;
-    zend_array *targets;
+    zval *path, *data;
+    HashTable *ht;
 
-    if (zend_parse_parameters(ZEND_NUM_ARGS(), "h", &targets) == FAILURE)
-    {
-        return ;
-    }
+    // 解析path数组到zval指向的内存地址
+    ZEND_PARSE_PARAMETERS_START(1, 1)
+    Z_PARAM_ARRAY(path)
+    ZEND_PARSE_PARAMETERS_END();
 
-    zval *self = getThis(); // getThis返回一个zval指针
+    // 获得zend_array地址
+    ht = Z_ARRVAL_P(path);
+
+    zval *self = getThis();
     zval *fd_ptr;
     zval rv;
     fd_ptr = zend_read_property(Z_OBJCE_P(self), self, ZEND_STRL("fd"), 0 TSRMLS_CC, &rv);
     fd = Z_LVAL_P(fd_ptr);
 
-    for (int i = 0; i < targets->nNumUsed; ++i)
+    // 遍历数组，并inotify_add_watch监控项
+    ZEND_HASH_FOREACH_VAL(ht, data)
     {
-        wd = inotify_add_watch(fd,  Z_STRVAL(targets->arData[i].val), IN_ALL_EVENTS);
+        wd = inotify_add_watch(fd, Z_STRVAL_P(data), IN_ALL_EVENTS);
         if ( wd == -1)
         {
             return;
         }
         else
         {
-            php_printf("watching %s using wd %d \n", Z_STRVAL(targets->arData[i].val), wd);
+            php_printf("Watching %s using wd %d \n", Z_STRVAL_P(data), wd);
         }
     }
+    ZEND_HASH_FOREACH_END();
 }
 
 PHP_METHOD(inotify, run)
@@ -152,57 +141,58 @@ PHP_METHOD(inotify, run)
     fd_ptr = zend_read_property(Z_OBJCE_P(self), self, ZEND_STRL("fd"), 0 TSRMLS_CC, &rv);
     fd = Z_LVAL_P(fd_ptr);
 
-    for (;;)
+    numRead = read(fd, buf, BUF_LEN);
+    if (numRead == 0)
     {
-        numRead = read(fd, buf, BUF_LEN);
-        if (numRead == 0)
-        {
-            php_printf("read from inotify fd returned 0 \n");
-            return ;
-        }
-        if (numRead == -1)
-        {
-            php_printf("read failed\n");
-            return ;
-        }
+        php_printf("read from inotify fd returned 0 \n");
+        return ;
+    }
+    if (numRead == -1)
+    {
+        php_printf("read failed\n");
+        return ;
+    }
 
-        php_printf("read %ld bytes from inotify fd\n", (long)numRead);
-        for (p = buf; p < buf + numRead;)
-        {
-            event = (struct inotify_event *)p;
-            displayInotifyEvent(event);
-            p += sizeof(struct inotify_event) + event->len;
-        }
+    // php_printf("read %ld bytes from inotify fd\n", (long)numRead);
+
+    zval eventData;
+    HashTable *ht;
+    array_init(return_value);
+    for (p = buf; p < buf + numRead;)
+    {
+        event = (struct inotify_event *)p;
+        array_init(&eventData);
+        displayInotifyEvent(event, &eventData);
+        zend_hash_next_index_insert_new(Z_ARRVAL_P(return_value), &eventData);
+        p += sizeof(struct inotify_event) + event->len;
     }
 }
 
-void displayInotifyEvent(struct inotify_event *i)
+void displayInotifyEvent(struct inotify_event *i, zval *data)
 {
-    php_printf("    wd =%2d; ", i->wd);
-    if (i->cookie > 0)
-        php_printf("cookie =%4d; ", i->cookie);
+    char *mask;
 
-    php_printf("mask = ");
-    if (i->mask & IN_ACCESS)        php_printf("IN_ACCESS ");
-    if (i->mask & IN_ATTRIB)        php_printf("IN_ATTRIB ");
-    if (i->mask & IN_CLOSE_NOWRITE) php_printf("IN_CLOSE_NOWRITE ");
-    if (i->mask & IN_CLOSE_WRITE)   php_printf("IN_CLOSE_WRITE ");
-    if (i->mask & IN_CREATE)        php_printf("IN_CREATE ");
-    if (i->mask & IN_DELETE)        php_printf("IN_DELETE ");
-    if (i->mask & IN_DELETE_SELF)   php_printf("IN_DELETE_SELF ");
-    if (i->mask & IN_IGNORED)       php_printf("IN_IGNORED ");
-    if (i->mask & IN_ISDIR)         php_printf("IN_ISDIR ");
-    if (i->mask & IN_MODIFY)        php_printf("IN_MODIFY ");
-    if (i->mask & IN_MOVE_SELF)     php_printf("IN_MOVE_SELF ");
-    if (i->mask & IN_MOVED_FROM)    php_printf("IN_MOVED_FROM ");
-    if (i->mask & IN_MOVED_TO)      php_printf("IN_MOVED_TO ");
-    if (i->mask & IN_OPEN)          php_printf("IN_OPEN ");
-    if (i->mask & IN_Q_OVERFLOW)    php_printf("IN_Q_OVERFLOW ");
-    if (i->mask & IN_UNMOUNT)       php_printf("IN_UNMOUNT ");
-    php_printf("\n");
+    if (i->mask & IN_ACCESS)        mask = "IN_ACCESS";
+    if (i->mask & IN_ATTRIB)        mask = "IN_ATTRIB";
+    if (i->mask & IN_CLOSE_NOWRITE) mask = "IN_CLOSE_NOWRITE";
+    if (i->mask & IN_CLOSE_WRITE)   mask = "IN_WRITE";
+    if (i->mask & IN_CREATE)        mask = "IN_CREATE";
+    if (i->mask & IN_DELETE)        mask = "IN_DELETE";
+    if (i->mask & IN_DELETE_SELF)   mask = "IN_DELETE_SELF";
+    if (i->mask & IN_IGNORED)       mask = "IN_IGNORED";
+    if (i->mask & IN_ISDIR)         mask = "IN_ISDIR";
+    if (i->mask & IN_MODIFY)        mask = "IN_WRITE";
+    if (i->mask & IN_MOVE_SELF)     mask = "IN_MOVE_SELF";
+    if (i->mask & IN_MOVED_FROM)    mask = "IN_MOVED_FROM";
+    if (i->mask & IN_MOVED_TO)      mask = "IN_MOVED_TO";
+    if (i->mask & IN_OPEN)          mask = "IN_OPEN";
+    if (i->mask & IN_Q_OVERFLOW)    mask = "IN_Q_OVERFLOW";
+    if (i->mask & IN_UNMOUNT)       mask = "IN_UNMOUNT";
 
-    if (i->len > 0)
-        php_printf("        name = %s\n", i->name);
+    add_assoc_long(data, "mask", i->wd);
+    if (i->cookie > 0)      add_assoc_long(data, "cookie", i->cookie);
+    if (sizeof(mask) > 0)   add_assoc_string(data, "mask", mask);
+    if (i->len > 0)         add_assoc_string(data, "name", i->name);
 }
 
 const zend_function_entry inotify_methods[] =

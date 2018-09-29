@@ -42,7 +42,7 @@ extern zend_module_entry inotify_module_entry;
 #include <limits.h>
 #define BUF_LEN 10 * (sizeof(struct inotify_event) + NAME_MAX + 1)
 
-void displayInotifyEvent(struct inotify_event *i);
+void displayInotifyEvent(struct inotify_event *i, zval *);
 
 extern zend_class_entry *inotify_ce_ptr;
 PHP_METHOD(inotify, __construct);
